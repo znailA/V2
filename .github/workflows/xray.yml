@@ -13,6 +13,9 @@ jobs:
           unzip xray.zip
           chmod +x xray
 
+      - name: Generate UUID
+        run: echo "UUID=$(cat /proc/sys/kernel/random/uuid)" >> $GITHUB_ENV
+
       - name: Create config
         run: |
           cat > config.json <<EOF
@@ -22,7 +25,7 @@ jobs:
                 "port":10000,
                 "protocol":"vless",
                 "settings":{
-                  "clients":[{"id":"11111111-1111-1111-1111-111111111111"}],
+                  "clients":[{"id":"${UUID}"}],
                   "decryption":"none"
                 },
                 "streamSettings":{
@@ -37,12 +40,9 @@ jobs:
 
       - name: Run Xray
         run: ./xray -config config.json &
-      
-      - name: Install Cloudflared
-        run: |
-          wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
-          chmod +x cloudflared
 
-      - name: Start Tunnel
+      - name: Cloudflare Tunnel
         run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
+          chmod +x cloudflared
           ./cloudflared tunnel --url http://localhost:10000
