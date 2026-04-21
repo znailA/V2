@@ -1,0 +1,59 @@
+name: xray
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Install Xray
+        run: |
+          curl -L -o xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
+          unzip xray.zip
+          chmod +x xray
+
+      - name: Generate UUID
+        run: echo "UUID=$(cat /proc/sys/kernel/random/uuid)" >> $GITHUB_ENV
+
+      - name: Create config
+        run: |
+          cat > config.json <<EOF
+          {
+            "inbounds":[
+              {
+                "port":10000,
+                "protocol":"vless",
+                "settings":{
+                  "clients":[{"id":"${UUID}"}],
+                  "decryption":"none"
+                },
+                "streamSettings":{
+                  "network":"ws",
+                  "wsSettings":{"path":"/ws"}
+                }
+              }
+            ],
+            "outbounds":[{"protocol":"freedom"}]
+          }
+          EOF
+
+      - name: Run Xray
+        run: |
+          nohup ./xray -config config.json > /dev/null 2>&1 &
+
+      - name: Install Cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
+          chmod +x cloudflared
+
+      - name: Run Tunnel
+        run: |
+          ./cloudflared tunnel --url http://localhost:10000 --no-autoupdate > tunnel.log 2>&1 &
+          sleep 15
+          cat tunnel.log
+
+      - name: Keep Alive
+        run: sleep 21600
