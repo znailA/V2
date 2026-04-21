@@ -1,0 +1,48 @@
+name: xray
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Xray
+        run: |
+          curl -L -o xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
+          unzip xray.zip
+          chmod +x xray
+
+      - name: Create config
+        run: |
+          cat > config.json <<EOF
+          {
+            "inbounds":[
+              {
+                "port":10000,
+                "protocol":"vless",
+                "settings":{
+                  "clients":[{"id":"11111111-1111-1111-1111-111111111111"}],
+                  "decryption":"none"
+                },
+                "streamSettings":{
+                  "network":"ws",
+                  "wsSettings":{"path":"/ws"}
+                }
+              }
+            ],
+            "outbounds":[{"protocol":"freedom"}]
+          }
+          EOF
+
+      - name: Run Xray
+        run: ./xray -config config.json &
+      
+      - name: Install Cloudflared
+        run: |
+          wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
+          chmod +x cloudflared
+
+      - name: Start Tunnel
+        run: |
+          ./cloudflared tunnel --url http://localhost:10000
